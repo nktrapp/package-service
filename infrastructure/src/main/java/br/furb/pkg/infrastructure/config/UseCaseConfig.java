@@ -1,5 +1,6 @@
 package br.furb.pkg.infrastructure.config;
 
+import br.furb.pkg.core.usecase.ChangePackageDestinationUseCase;
 import br.furb.pkg.core.usecase.CreatePackageUseCase;
 import br.furb.pkg.core.usecase.GetPackageUseCase;
 import br.furb.pkg.core.usecase.ListPackagesUseCase;
@@ -32,6 +33,11 @@ public class UseCaseConfig {
     @Bean
     public UpdatePackageStatusUseCase updatePackageStatusUseCase(PackageRepository packageRepository, OutboxRepository outboxRepository) {
         return new UpdatePackageStatusUseCase(packageRepository, outboxRepository);
+    }
+
+    @Bean
+    public ChangePackageDestinationUseCase changePackageDestinationUseCase(PackageRepository packageRepository, OutboxRepository outboxRepository) {
+        return new ChangePackageDestinationUseCase(packageRepository, outboxRepository);
     }
 
     @Bean

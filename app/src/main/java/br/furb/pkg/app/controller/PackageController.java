@@ -1,8 +1,10 @@
 package br.furb.pkg.app.controller;
 
+import br.furb.pkg.core.dto.ChangeDestinationCommand;
 import br.furb.pkg.core.dto.CreatePackageCommand;
 import br.furb.pkg.core.dto.PackageResponse;
 import br.furb.pkg.core.dto.UpdateStatusCommand;
+import br.furb.pkg.core.usecase.ChangePackageDestinationUseCase;
 import br.furb.pkg.core.usecase.CreatePackageUseCase;
 import br.furb.pkg.core.usecase.GetPackageUseCase;
 import br.furb.pkg.core.usecase.ListPackagesUseCase;
@@ -32,6 +34,7 @@ public class PackageController {
     private final GetPackageUseCase getPackageUseCase;
     private final ListPackagesUseCase listPackagesUseCase;
     private final UpdatePackageStatusUseCase updatePackageStatusUseCase;
+    private final ChangePackageDestinationUseCase changePackageDestinationUseCase;
 
     @PostMapping
     public ResponseEntity<PackageResponse> create(@Valid @RequestBody CreatePackageCommand command) {
@@ -56,6 +59,13 @@ public class PackageController {
                                                         @Valid @RequestBody UpdateStatusCommand command) {
         UpdateStatusCommand enriched = new UpdateStatusCommand(id, command.newStatus());
         PackageResponse response = updatePackageStatusUseCase.execute(enriched);
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}/destination")
+    public ResponseEntity<PackageResponse> changeDestination(@PathVariable String id,
+                                                             @Valid @RequestBody ChangeDestinationCommand command) {
+        PackageResponse response = changePackageDestinationUseCase.execute(id, command);
         return ResponseEntity.ok(response);
     }
 }

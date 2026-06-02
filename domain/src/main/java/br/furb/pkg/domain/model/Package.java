@@ -63,6 +63,20 @@ public class Package {
                 .build();
     }
 
+    /**
+     * Changes the destination CEP and reopens routing (status -> ROUTE_PENDING). Only allowed before the
+     * package leaves for transit; the transition guard rejects changes once IN_TRANSIT, DELIVERED or FAILED.
+     */
+    public Package withRecipientCep(String newRecipientCep) {
+        validateStatusTransition(PackageStatus.ROUTE_PENDING);
+
+        return this.toBuilder()
+                .recipientCep(newRecipientCep)
+                .status(PackageStatus.ROUTE_PENDING)
+                .updatedAt(Instant.now())
+                .build();
+    }
+
     private void validateStatusTransition(PackageStatus newStatus) {
         if (status.isValidTransition(newStatus)) {
             return;

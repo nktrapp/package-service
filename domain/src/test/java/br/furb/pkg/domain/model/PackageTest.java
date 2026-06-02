@@ -2,65 +2,6 @@ package br.furb.pkg.domain.model;
 
 import br.furb.pkg.domain.exception.InvalidPackageStateException;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-class PackageTest {
-
-    @Test
-    @DisplayName("Given a created package, should update status to route calculated when route info is added")
-    void shouldUpdateStatusToRouteCalculatedWhenRouteInfoIsAdded() {
-        // GIVEN
-        Package pkg = buildPackage(PackageStatus.CREATED);
-        RouteInfo routeInfo = RouteInfo.builder()
-                .hubs(List.of("Hub A", "Hub B"))
-                .distanceKm(12.5)
-                .estimatedDelivery(Instant.parse("2026-05-31T10:15:30Z"))
-                .build();
-
-        // WHEN
-        Package updatedPackage = pkg.withRouteInfo(routeInfo);
-
-        // THEN
-        assertThat(updatedPackage.getStatus()).isEqualTo(PackageStatus.ROUTE_CALCULATED);
-        assertThat(updatedPackage.getRouteInfo()).isEqualTo(routeInfo);
-        assertThat(updatedPackage.getUpdatedAt()).isNotNull();
-        assertThat(updatedPackage.getCreatedAt()).isEqualTo(pkg.getCreatedAt());
-    }
-
-    @Test
-    @DisplayName("Given a delivered package, should throw exception when transitioning to in transit")
-    void shouldThrowExceptionWhenTransitionIsInvalid() {
-        // GIVEN
-        Package pkg = buildPackage(PackageStatus.DELIVERED);
-
-        // WHEN / THEN
-        assertThatThrownBy(() -> pkg.withStatus(PackageStatus.IN_TRANSIT))
-                .isInstanceOf(InvalidPackageStateException.class)
-                .hasMessageContaining("Cannot transition from DELIVERED to IN_TRANSIT");
-    }
-
-    private Package buildPackage(PackageStatus status) {
-        return Package.builder()
-                .id("pkg-1")
-                .senderCep("89000000")
-                .recipientCep("89010000")
-                .weight(BigDecimal.TEN)
-                .status(status)
-                .description("Package test")
-                .createdAt(Instant.parse("2026-05-31T09:00:00Z"))
-                .build();
-    }
-}package br.furb.pkg.domain.model;
-
-import br.furb.pkg.domain.exception.InvalidPackageStateException;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -108,6 +49,38 @@ class PackageTest {
             assertThat(updatedPackage.getStatus()).isEqualTo(PackageStatus.ROUTE_CALCULATED);
             assertThat(updatedPackage.getRouteInfo()).isEqualTo(routeInfo);
             assertThat(updatedPackage.getUpdatedAt()).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Destination change")
+    class DestinationChange {
+
+        @Test
+        @DisplayName("Given a calculated route, should change recipient CEP and reopen routing")
+        void shouldChangeRecipientCepAndReopenRouting() {
+            // GIVEN
+            Package pkg = buildPackage(PackageStatus.ROUTE_CALCULATED);
+
+            // WHEN
+            Package updated = pkg.withRecipientCep("89030000");
+
+            // THEN
+            assertThat(updated.getRecipientCep()).isEqualTo("89030000");
+            assertThat(updated.getStatus()).isEqualTo(PackageStatus.ROUTE_PENDING);
+            assertThat(updated.getUpdatedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Given a package already in transit, should reject a destination change")
+        void shouldRejectDestinationChangeWhenInTransit() {
+            // GIVEN
+            Package pkg = buildPackage(PackageStatus.IN_TRANSIT);
+
+            // WHEN / THEN
+            assertThatThrownBy(() -> pkg.withRecipientCep("89030000"))
+                    .isInstanceOf(InvalidPackageStateException.class)
+                    .hasMessage("Cannot transition from IN_TRANSIT to ROUTE_PENDING");
         }
     }
 
