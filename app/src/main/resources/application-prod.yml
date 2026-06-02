@@ -1,0 +1,16 @@
+spring:
+  data:
+    mongodb:
+      auto-index-creation: true
+      uri: ${MONGODB_URI}
+
+spring.cloud.aws:
+  region:
+    static: ${AWS_REGION:us-east-1}
+  sqs:
+    endpoint: ""
+
+logging:
+  level:
+    root: INFO
+    br.furb: INFO
