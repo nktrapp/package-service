@@ -1,6 +1,7 @@
 package br.furb.pkg.application.adapter.in.messaging;
 
 import br.furb.pkg.application.usecase.ProcessRouteCalculatedUseCase;
+import br.furb.pkg.application.usecase.ProcessRouteFailedUseCase;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.awspring.cloud.sqs.annotation.SqsListener;
@@ -19,6 +20,7 @@ import java.util.List;
 public class PackageEventListenerAdapter {
 
     private final ProcessRouteCalculatedUseCase processRouteCalculatedUseCase;
+    private final ProcessRouteFailedUseCase processRouteFailedUseCase;
     private final ObjectMapper objectMapper;
 
     @Value("${app.messaging.inbound-queue:logistics-events-queue.fifo}")
@@ -52,6 +54,21 @@ public class PackageEventListenerAdapter {
                     }
 
                     processRouteCalculatedUseCase.execute(eventId, packageId, hubs, totalDistanceKm, estimatedTransitHours);
+                } finally {
+                    MDC.remove("eventId");
+                    MDC.remove("packageId");
+                }
+            } else if ("route.failed".equals(eventType)) {
+                JsonNode payload = requireNode(root, "payload");
+                String packageId = requireText(payload, "packageId");
+                JsonNode reasonNode = payload.get("reason");
+                String reason = reasonNode == null || reasonNode.isNull() ? null : reasonNode.asText();
+
+                MDC.put("eventId", eventId);
+                MDC.put("packageId", packageId);
+                try {
+                    log.info("[sqs-listener] Received {} from {}", eventType, inboundQueue);
+                    processRouteFailedUseCase.execute(eventId, packageId, reason);
                 } finally {
                     MDC.remove("eventId");
                     MDC.remove("packageId");

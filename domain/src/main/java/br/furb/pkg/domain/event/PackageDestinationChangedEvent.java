@@ -34,6 +34,7 @@ public class PackageDestinationChangedEvent implements DomainEvent {
     @Builder
     public static class Payload {
         private final String packageId;
+        private final String senderCep;
         private final String previousCep;
         private final String newCep;
     }

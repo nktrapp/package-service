@@ -33,6 +33,7 @@ public class ChangePackageDestinationUseCase {
         PackageDestinationChangedEvent event = PackageDestinationChangedEvent.builder()
                 .payload(PackageDestinationChangedEvent.Payload.builder()
                         .packageId(saved.getId())
+                        .senderCep(saved.getSenderCep())
                         .previousCep(previousCep)
                         .newCep(saved.getRecipientCep())
                         .build())

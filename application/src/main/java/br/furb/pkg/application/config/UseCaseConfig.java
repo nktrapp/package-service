@@ -5,6 +5,7 @@ import br.furb.pkg.application.usecase.CreatePackageUseCase;
 import br.furb.pkg.application.usecase.GetPackageUseCase;
 import br.furb.pkg.application.usecase.ListPackagesUseCase;
 import br.furb.pkg.application.usecase.ProcessRouteCalculatedUseCase;
+import br.furb.pkg.application.usecase.ProcessRouteFailedUseCase;
 import br.furb.pkg.application.usecase.UpdatePackageStatusUseCase;
 import br.furb.pkg.domain.port.InboxRepositoryPort;
 import br.furb.pkg.domain.port.OutboxRepositoryPort;
@@ -47,5 +48,11 @@ public class UseCaseConfig {
     public ProcessRouteCalculatedUseCase processRouteCalculatedUseCase(PackageRepositoryPort packageRepository,
                                                                        InboxRepositoryPort inboxRepository) {
         return new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
+    }
+
+    @Bean
+    public ProcessRouteFailedUseCase processRouteFailedUseCase(PackageRepositoryPort packageRepository,
+                                                               InboxRepositoryPort inboxRepository) {
+        return new ProcessRouteFailedUseCase(packageRepository, inboxRepository);
     }
 }
