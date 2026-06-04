@@ -22,10 +22,8 @@ class PackageTest {
         @Test
         @DisplayName("Given an invalid target status, should throw exception when updating package status")
         void shouldThrowExceptionWhenUpdatingToInvalidStatus() {
-            // GIVEN
             Package pkg = buildPackage(PackageStatus.CREATED);
 
-            // WHEN / THEN
             assertThatThrownBy(() -> pkg.withStatus(PackageStatus.DELIVERED))
                     .isInstanceOf(InvalidPackageStateException.class)
                     .hasMessage("Cannot transition from CREATED to DELIVERED");
@@ -34,7 +32,6 @@ class PackageTest {
         @Test
         @DisplayName("Given a created package, should mark route as calculated when route info is assigned")
         void shouldMarkRouteAsCalculatedWhenRouteInfoIsAssigned() {
-            // GIVEN
             Package pkg = buildPackage(PackageStatus.CREATED);
             RouteInfo routeInfo = RouteInfo.builder()
                     .hubs(List.of("Hub A", "Hub B"))
@@ -42,10 +39,8 @@ class PackageTest {
                     .estimatedDelivery(Instant.parse("2026-05-31T15:00:00Z"))
                     .build();
 
-            // WHEN
             Package updatedPackage = pkg.withRouteInfo(routeInfo);
 
-            // THEN
             assertThat(updatedPackage.getStatus()).isEqualTo(PackageStatus.ROUTE_CALCULATED);
             assertThat(updatedPackage.getRouteInfo()).isEqualTo(routeInfo);
             assertThat(updatedPackage.getUpdatedAt()).isNotNull();
@@ -59,13 +54,10 @@ class PackageTest {
         @Test
         @DisplayName("Given a calculated route, should change recipient CEP and reopen routing")
         void shouldChangeRecipientCepAndReopenRouting() {
-            // GIVEN
             Package pkg = buildPackage(PackageStatus.ROUTE_CALCULATED);
 
-            // WHEN
             Package updated = pkg.withRecipientCep("89030000");
 
-            // THEN
             assertThat(updated.getRecipientCep()).isEqualTo("89030000");
             assertThat(updated.getStatus()).isEqualTo(PackageStatus.ROUTE_PENDING);
             assertThat(updated.getUpdatedAt()).isNotNull();
@@ -74,10 +66,8 @@ class PackageTest {
         @Test
         @DisplayName("Given a package already in transit, should reject a destination change")
         void shouldRejectDestinationChangeWhenInTransit() {
-            // GIVEN
             Package pkg = buildPackage(PackageStatus.IN_TRANSIT);
 
-            // WHEN / THEN
             assertThatThrownBy(() -> pkg.withRecipientCep("89030000"))
                     .isInstanceOf(InvalidPackageStateException.class)
                     .hasMessage("Cannot transition from IN_TRANSIT to ROUTE_PENDING");

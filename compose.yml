@@ -1,12 +1,7 @@
 name: package-service
 
-# Self-contained local stack for the package-service (independent project).
-# Brings up MongoDB (single-node replica set), MiniStack (SQS) and the service itself.
-# Both FIFO queues are created so the service can publish package events and consume route events.
-
 services:
 
-  # ─── MiniStack (AWS local: SQS, Secrets Manager) ───
   ministack:
     image: ministackorg/ministack:latest
     ports:
@@ -42,7 +37,6 @@ services:
       retries: 10
       start_period: 20s
 
-  # ─── Init container: creates the FIFO queues in MiniStack ───
   aws-init:
     image: amazon/aws-cli:2.22.35
     depends_on:
@@ -56,7 +50,6 @@ services:
     command:
       - -c
       - |
-        # Dead Letter Queues (FIFO)
         aws --endpoint-url=http://ministack:4566 sqs create-queue --queue-name package-events-dlq.fifo --attributes FifoQueue=true
         aws --endpoint-url=http://ministack:4566 sqs create-queue --queue-name logistics-events-dlq.fifo --attributes FifoQueue=true
 
@@ -78,7 +71,6 @@ services:
 
         echo "SQS FIFO queues created successfully"
 
-  # ─── Package Service ───
   package-service:
     build:
       context: .
@@ -105,7 +97,6 @@ services:
       retries: 5
       start_period: 60s
 
-  # ─── Mongo Express (debug UI) ───
   mongo-express:
     image: mongo-express:1.0
     ports:

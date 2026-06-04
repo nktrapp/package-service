@@ -45,7 +45,6 @@ class OutboxRelaySchedulerAdapterTest {
         @Test
         @DisplayName("Given a pending event, should publish to the FIFO queue and mark it as published when relay succeeds")
         void shouldPublishAndMarkAsPublishedWhenRelaySucceeds() {
-            // GIVEN
             OutboxRelaySchedulerAdapter scheduler = buildScheduler();
             OutboxEntry entry = new OutboxEntry(
                     "event-1",
@@ -58,10 +57,8 @@ class OutboxRelaySchedulerAdapterTest {
             when(outboxRepository.claimPending(eq(10), argThat(instant -> nonNull(instant)), argThat(instant -> nonNull(instant))))
                     .thenReturn(List.of(entry));
 
-            // WHEN
             scheduler.relay();
 
-            // THEN — group id is the packageId, dedup id is the eventId
             ArgumentCaptor<String> envelopeCaptor = ArgumentCaptor.forClass(String.class);
             ArgumentCaptor<Instant> publishedAtCaptor = ArgumentCaptor.forClass(Instant.class);
             verify(eventPublisherPort).publish(eq("package-events-queue"), envelopeCaptor.capture(), eq("pkg-1"), eq("event-1"));
@@ -77,7 +74,6 @@ class OutboxRelaySchedulerAdapterTest {
         @Test
         @DisplayName("Given a publishing failure, should schedule retry when attempts are still available")
         void shouldScheduleRetryWhenPublishingFails() {
-            // GIVEN
             OutboxRelaySchedulerAdapter scheduler = buildScheduler();
             OutboxEntry entry = new OutboxEntry(
                     "event-1",
@@ -95,10 +91,8 @@ class OutboxRelaySchedulerAdapterTest {
                     .when(eventPublisherPort)
                     .publish(eq("package-events-queue"), argThat(message -> message.contains("event-1")), eq("pkg-1"), eq("event-1"));
 
-            // WHEN
             scheduler.relay();
 
-            // THEN
             verify(outboxRepository).markForRetry(eq("event-1"), eq("boom"), argThat(instant -> nonNull(instant)), eq(5));
             verify(outboxRepository, never()).markAsPublished(eq("event-1"), argThat(instant -> nonNull(instant)));
         }

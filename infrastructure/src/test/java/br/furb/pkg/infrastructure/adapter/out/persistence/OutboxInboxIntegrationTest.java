@@ -80,7 +80,7 @@ class OutboxInboxIntegrationTest {
         OutboxEntry entry = claimed.getFirst();
         assertThat(entry.eventId()).isEqualTo(event.getEventId());
         assertThat(entry.eventType()).isEqualTo("package.created");
-        assertThat(entry.groupId()).isEqualTo("pkg-1"); // FIFO MessageGroupId = packageId
+        assertThat(entry.groupId()).isEqualTo("pkg-1");
 
         outboxRepository.markAsPublished(entry.eventId(), Instant.now());
         assertThat(outboxRepository.countFailed()).isZero();
@@ -100,16 +100,13 @@ class OutboxInboxIntegrationTest {
     @Test
     @DisplayName("a failed transaction rolls back the inbox claim so the event is reprocessed")
     void rollbackReprocessesEvent() {
-        // First delivery: claim the inbox key, then fail inside the same transaction.
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
             inboxRepository.saveIfAbsent("evt-2", "package.created");
             throw new IllegalStateException("boom");
         })).isInstanceOf(IllegalStateException.class);
 
-        // The claim was rolled back — the event was NOT silently marked as processed.
         assertThat(inboxRepository.existsByEventId("evt-2")).isFalse();
 
-        // Redelivery now processes successfully.
         transactionTemplate.executeWithoutResult(status ->
                 assertThat(inboxRepository.saveIfAbsent("evt-2", "package.created")).isTrue());
         assertThat(inboxRepository.existsByEventId("evt-2")).isTrue();
