@@ -1,4 +1,4 @@
-package br.furb.pkg.infrastructure.persistence;
+package br.furb.pkg.infrastructure.adapter.out.persistence;
 
 import br.furb.pkg.domain.event.PackageCreatedEvent;
 import br.furb.pkg.domain.port.InboxRepositoryPort;
