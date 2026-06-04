@@ -58,10 +58,10 @@ resource "aws_ecs_task_definition" "package_service" {
     environment = [
       { name = "SPRING_PROFILES_ACTIVE", value = "prod" },
       { name = "AWS_REGION", value = var.aws_region },
-      { name = "APP_MESSAGING_INBOUND_QUEUE", value = "${var.project_name}-logistics-events-queue.fifo" },
-      { name = "APP_MESSAGING_OUTBOUND_QUEUE", value = "${var.project_name}-package-events-queue.fifo" },
-      { name = "APP_MESSAGING_INBOUND_QUEUE_URL", value = data.aws_sqs_queue.logistics_events.url },
-      { name = "APP_MESSAGING_OUTBOUND_QUEUE_URL", value = aws_sqs_queue.package_events.url },
+      { name = "APP_MESSAGING_INBOUND_QUEUE", value = local.logistics_events_queue_name },
+      { name = "APP_MESSAGING_OUTBOUND_QUEUE", value = local.package_events_queue_name },
+      { name = "APP_MESSAGING_INBOUND_QUEUE_URL", value = local.logistics_events_queue_url },
+      { name = "APP_MESSAGING_OUTBOUND_QUEUE_URL", value = local.package_events_queue_url },
     ]
     secrets = [
       { name = "MONGODB_URI", valueFrom = "${aws_secretsmanager_secret.mongodb.arn}:package_uri::" },

@@ -1,13 +1,12 @@
 name: package-service
 
 services:
-
   ministack:
     image: ministackorg/ministack:latest
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=sqs,secretsmanager,cloudwatch
+      - SERVICES=sqs,secretsmanager,cloudwatch,ssm
       - DEFAULT_REGION=us-east-1
       - EAGER_SERVICE_LOADING=1
     volumes:
@@ -19,7 +18,6 @@ services:
       retries: 5
       start_period: 5s
 
-  # ─── MongoDB (single-node replica set — required for multi-document transactions) ───
   mongodb:
     image: mongo:8.0
     command: ["--replSet", "rs0", "--bind_ip_all"]
@@ -30,46 +28,37 @@ services:
     volumes:
       - mongodb-data:/data/db
     healthcheck:
-      # Idempotently initiate the replica set, then report healthy only once a primary is elected.
       test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017'}]}) }; db.hello().isWritablePrimary || quit(1)"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
 
-  aws-init:
-    image: amazon/aws-cli:2.22.35
+  terraform-contracts:
+    image: hashicorp/terraform:1.8.5
     depends_on:
       ministack:
         condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        rm -rf /workdir
+        cp -R /workspace /workdir
+        terraform -chdir=/workdir/envs/local/ministack/contracts init -input=false
+        terraform -chdir=/workdir/envs/local/ministack/contracts apply -auto-approve -input=false
     environment:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        aws --endpoint-url=http://ministack:4566 sqs create-queue --queue-name package-events-dlq.fifo --attributes FifoQueue=true
-        aws --endpoint-url=http://ministack:4566 sqs create-queue --queue-name logistics-events-dlq.fifo --attributes FifoQueue=true
-
-        PKG_DLQ_ARN=$$(aws --endpoint-url=http://ministack:4566 sqs get-queue-attributes \
-          --queue-url http://ministack:4566/000000000000/package-events-dlq.fifo \
-          --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
-
-        LOG_DLQ_ARN=$$(aws --endpoint-url=http://ministack:4566 sqs get-queue-attributes \
-          --queue-url http://ministack:4566/000000000000/logistics-events-dlq.fifo \
-          --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
-
-        aws --endpoint-url=http://ministack:4566 sqs create-queue \
-          --queue-name package-events-queue.fifo \
-          --attributes "{\"FifoQueue\":\"true\",\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$$PKG_DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
-
-        aws --endpoint-url=http://ministack:4566 sqs create-queue \
-          --queue-name logistics-events-queue.fifo \
-          --attributes "{\"FifoQueue\":\"true\",\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$$LOG_DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
-
-        echo "SQS FIFO queues created successfully"
+      TF_DATA_DIR: /terraform-data
+      TF_VAR_ministack_endpoint: http://ministack:4566
+      TF_VAR_environment: local
+      TF_VAR_project_name: logistic
+      TF_VAR_queue_name_prefix: ""
+    volumes:
+      - ${LOGISTIC_IAC_PATH:-../logistic-iac}:/workspace:ro
+      - terraform-state:/terraform-state
+      - terraform-data:/terraform-data
 
   package-service:
     build:
@@ -85,10 +74,12 @@ services:
       SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY: test
       SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY: test
       SPRING_CLOUD_AWS_REGION_STATIC: us-east-1
+      APP_MESSAGING_INBOUND_QUEUE: logistics-events-queue.fifo
+      APP_MESSAGING_OUTBOUND_QUEUE: package-events-queue.fifo
     depends_on:
       mongodb:
         condition: service_healthy
-      aws-init:
+      terraform-contracts:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/management/health/liveness"]
@@ -111,3 +102,5 @@ services:
 volumes:
   ministack-data:
   mongodb-data:
+  terraform-state:
+  terraform-data:
