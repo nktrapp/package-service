@@ -4,7 +4,7 @@ import br.furb.pkg.domain.port.EventPublisherPort;
 import br.furb.pkg.domain.port.OutboxRepositoryPort;
 import br.furb.pkg.domain.port.OutboxRepositoryPort.OutboxEntry;
 import br.furb.pkg.domain.port.OutboxRepositoryPort.RetryOutcome;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

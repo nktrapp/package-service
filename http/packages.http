@@ -1,0 +1,127 @@
+###############################################################################
+# package-service — testes HTTP
+# Porta local: 8081. Execute de cima para baixo.
+# Pré-requisito: logistics-service no ar com o grafo padrão (HubDataSeeder, perfil local).
+# A roteirização é ASSÍNCRONA: após criar/alterar um pacote, aguarde ~2–5s e reconsulte.
+###############################################################################
+@host = http://localhost:8081
+
+### [Health] Serviço no ar
+GET {{host}}/management/health
+
+# ═══════════════ FLUXO FELIZ: criar → rotear → entregar ═══════════════
+
+### [Feliz] Criar pacote Blumenau → Joinville (ambas as cidades têm hub no seeder)
+# @name criarPacote
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{
+  "senderCep": "89010000",
+  "recipientCep": "89201000",
+  "weight": 2.5,
+  "description": "Caixa de livros"
+}
+
+> {% client.global.set("packageId", response.body.id); %}
+
+### [Feliz] Consultar o pacote (aguarde alguns segundos: status deve virar ROUTE_CALCULATED com routeInfo)
+GET {{host}}/api/v1/packages/{{packageId}}
+
+### [Feliz] Listar pacotes
+GET {{host}}/api/v1/packages
+
+### [Feliz] Filtrar por status
+GET {{host}}/api/v1/packages?status=ROUTE_CALCULATED
+
+### [Feliz] Avançar ROUTE_CALCULATED → IN_TRANSIT
+# (só funciona depois que a rota foi calculada — veja o status acima)
+PATCH {{host}}/api/v1/packages/{{packageId}}/status
+Content-Type: application/json
+
+{ "packageId": "{{packageId}}", "newStatus": "IN_TRANSIT" }
+
+### [Feliz] IN_TRANSIT → DELIVERED
+PATCH {{host}}/api/v1/packages/{{packageId}}/status
+Content-Type: application/json
+
+{ "packageId": "{{packageId}}", "newStatus": "DELIVERED" }
+
+# ═══════════ FLUXO: mudança de destino + recálculo ═══════════
+
+### Cria um pacote para o teste de mudança de destino
+# @name pacoteDestino
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "89010000", "recipientCep": "89201000", "weight": 1.0 }
+
+> {% client.global.set("pkgDestino", response.body.id); %}
+
+### Muda o destino (vira ROUTE_PENDING e, após recálculo, volta a ROUTE_CALCULATED)
+# Destino agora em Florianópolis (88010000) — também tem hub no seeder
+PATCH {{host}}/api/v1/packages/{{pkgDestino}}/destination
+Content-Type: application/json
+
+{ "newCep": "88010000" }
+
+### Reconsultar (aguarde ~2–5s)
+GET {{host}}/api/v1/packages/{{pkgDestino}}
+
+# ═══════════ FALHAS CONHECIDAS (tratadas) ═══════════
+
+### [Falha de negócio → FAILED] Destino em estado SEM hub (Manaus/AM)
+# A roteirização falha de forma permanente; o logistics emite route.failed e o
+# pacote vai para FAILED. Reconsulte após alguns segundos.
+# @name pacoteSemHub
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "89010000", "recipientCep": "69005070", "weight": 1.0, "description": "Destino sem hub (Manaus/AM)" }
+
+> {% client.global.set("pkgSemHub", response.body.id); %}
+
+### Reconsultar (status deve estar FAILED)
+GET {{host}}/api/v1/packages/{{pkgSemHub}}
+
+### [Falha 400] CEP inválido (menos de 8 dígitos)
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "123", "recipientCep": "89201000", "weight": 2.5 }
+
+### [Falha 400] Peso não positivo
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "89010000", "recipientCep": "89201000", "weight": 0 }
+
+### [Falha 400] Campo obrigatório ausente (recipientCep)
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "89010000", "weight": 2.5 }
+
+### [Falha 4xx] Transição de status inválida (pulo direto para DELIVERED)
+# @name pacoteInvalido
+POST {{host}}/api/v1/packages
+Content-Type: application/json
+
+{ "senderCep": "89010000", "recipientCep": "89201000", "weight": 1.0 }
+
+> {% client.global.set("pkgInvalido", response.body.id); %}
+
+### tentativa inválida (CREATED/ROUTE_CALCULATED → DELIVERED não é permitido)
+PATCH {{host}}/api/v1/packages/{{pkgInvalido}}/status
+Content-Type: application/json
+
+{ "packageId": "{{pkgInvalido}}", "newStatus": "DELIVERED" }
+
+### [Falha 400] Corpo sem packageId (validação do corpo exige packageId + newStatus)
+PATCH {{host}}/api/v1/packages/{{pkgInvalido}}/status
+Content-Type: application/json
+
+{ "newStatus": "IN_TRANSIT" }
+
+### [Falha 404] Pacote inexistente
+GET {{host}}/api/v1/packages/000000000000000000000000

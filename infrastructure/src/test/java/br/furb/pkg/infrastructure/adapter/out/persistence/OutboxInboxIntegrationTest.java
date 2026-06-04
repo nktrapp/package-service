@@ -7,26 +7,27 @@ import br.furb.pkg.domain.port.OutboxRepositoryPort.OutboxEntry;
 import br.furb.pkg.infrastructure.adapter.out.persistence.repository.MongoInboxRepositoryAdapter;
 import br.furb.pkg.infrastructure.adapter.out.persistence.repository.MongoOutboxRepositoryAdapter;
 import br.furb.pkg.infrastructure.adapter.out.persistence.repository.mongo.OutboxMongoRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
+import org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration;
+import org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.MongoTransactionManager;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -44,11 +45,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OutboxInboxIntegrationTest {
 
     @Container
-    static final MongoDBContainer MONGO = new MongoDBContainer(DockerImageName.parse("mongo:8.0"));
+    static final MongoDBContainer MONGO = new MongoDBContainer(DockerImageName.parse("mongo:8.0")).withReplicaSet();
 
     @DynamicPropertySource
     static void mongoProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.mongodb.uri", MONGO::getReplicaSetUrl);
+        registry.add("spring.mongodb.uri", MONGO::getReplicaSetUrl);
         registry.add("spring.data.mongodb.auto-index-creation", () -> true);
     }
 
@@ -63,7 +64,7 @@ class OutboxInboxIntegrationTest {
 
     @BeforeEach
     void clear() {
-        mongoTemplate.getCollectionNames().forEach(mongoTemplate::dropCollection);
+        mongoTemplate.getCollectionNames().forEach(collection -> mongoTemplate.remove(new Query(), collection));
     }
 
     @Test
@@ -127,14 +128,14 @@ class OutboxInboxIntegrationTest {
     }
 
     @SpringBootConfiguration
-    @ImportAutoConfiguration({MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
+    @ImportAutoConfiguration({MongoAutoConfiguration.class, DataMongoAutoConfiguration.class})
     @EnableMongoRepositories(basePackageClasses = OutboxMongoRepository.class)
     @Import({MongoOutboxRepositoryAdapter.class, MongoInboxRepositoryAdapter.class})
     static class TestConfig {
 
         @Bean
         ObjectMapper objectMapper() {
-            return new ObjectMapper().findAndRegisterModules();
+            return new ObjectMapper();
         }
 
         @Bean
