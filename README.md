@@ -162,3 +162,4 @@ Para que a roteirização funcione, o `logistics-service` precisa ter hubs/conex
 
 Testes HTTP prontos em [`http/packages.http`](http/packages.http). Guia de validação manual
 ponta a ponta em [`../VALIDATION.md`](../VALIDATION.md).
+
