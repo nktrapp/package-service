@@ -1,7 +1,7 @@
 # ─── CloudWatch Log Group ───
 resource "aws_cloudwatch_log_group" "package_service" {
   name              = "/ecs/${var.project_name}/package-service"
-  retention_in_days = 30
+  retention_in_days = 1
 }
 
 # ─── Target Group ───
@@ -10,7 +10,7 @@ resource "aws_lb_target_group" "package_service" {
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = local.vpc_id
-  target_type = "ip"
+  target_type = "instance"
 
   health_check {
     path                = "/management/health/liveness"
@@ -41,22 +41,27 @@ resource "aws_lb_listener_rule" "package_service" {
 # ─── Task Definition ───
 resource "aws_ecs_task_definition" "package_service" {
   family                   = "${var.project_name}-package-service"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
+  network_mode             = "bridge"
+  requires_compatibilities = ["EC2"]
+  cpu                      = "256"
+  memory                   = "384"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name  = "package-service"
-    image = var.service_image
+    name              = "package-service"
+    image             = var.service_image
+    cpu               = 256
+    memory            = 384
+    memoryReservation = 256
     portMappings = [{
       containerPort = 8080
+      hostPort      = 0
       protocol      = "tcp"
     }]
     environment = [
       { name = "SPRING_PROFILES_ACTIVE", value = "prod" },
+      { name = "JAVA_TOOL_OPTIONS", value = "-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=70" },
       { name = "AWS_REGION", value = var.aws_region },
       { name = "APP_MESSAGING_INBOUND_QUEUE", value = local.logistics_events_queue_name },
       { name = "APP_MESSAGING_OUTBOUND_QUEUE", value = local.package_events_queue_name },
@@ -90,12 +95,10 @@ resource "aws_ecs_service" "package_service" {
   cluster         = local.ecs_cluster_id
   task_definition = aws_ecs_task_definition.package_service.arn
   desired_count   = var.desired_count
-  launch_type     = "FARGATE"
 
-  network_configuration {
-    subnets          = local.private_subnet_ids
-    security_groups  = [local.ecs_security_group_id]
-    assign_public_ip = false
+  capacity_provider_strategy {
+    capacity_provider = local.ecs_capacity_provider
+    weight            = 1
   }
 
   load_balancer {
