@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/nktrapp/package-service/compare/v1.2.0...v1.3.0) (2026-06-07)
+
+
+### Features
+
+* Adicionado Banner do Spring e ajustado as properties ([9a71e77](https://github.com/nktrapp/package-service/commit/9a71e7737358ae7bb991c688dba3ac50059e4160))
+
 # [1.2.0](https://github.com/nktrapp/package-service/compare/v1.1.0...v1.2.0) (2026-06-07)
 
 
