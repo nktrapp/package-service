@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   release:
-    name: Semantic Release & Jib Publish
+    name: Semantic Release
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -43,12 +43,12 @@ jobs:
 
           git checkout -B main "$APPROVED_SHA"
 
-      - name: Set up JDK 25 (Gradle runtime)
-        if: ${{ env.SKIP_RELEASE != 'true' }}
-        uses: actions/setup-java@v5
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
-          distribution: temurin
+          distribution: graalvm
           java-version: '25'
+          native-image-job-reports: true
 
       - name: Set up Gradle
         if: ${{ env.SKIP_RELEASE != 'true' }}
@@ -67,7 +67,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Log in to Amazon ECR (for Jib push)
+      - name: Log in to Amazon ECR
         if: ${{ env.SKIP_RELEASE != 'true' }}
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -76,13 +76,13 @@ jobs:
         if: ${{ env.SKIP_RELEASE != 'true' }}
         run: echo "IMAGE=${{ steps.ecr.outputs.registry }}/furb-logistics/package-service" >> "$GITHUB_ENV"
 
-      - name: Semantic Release (version, changelog, tag, GitHub release, Jib image)
+      - name: Semantic Release (version, changelog, tag, GitHub release, Docker push)
         if: ${{ env.SKIP_RELEASE != 'true' }}
         uses: cycjimmy/semantic-release-action@v5
         with:
           extra_plugins: |
-            @semantic-release/changelog
             @semantic-release/exec
+            @semantic-release/changelog
             @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
