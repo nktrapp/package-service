@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/nktrapp/package-service/compare/v1.1.0...v1.2.0) (2026-06-07)
+
+
+### Features
+
+* Migrando pra GraalVM ([cc300e5](https://github.com/nktrapp/package-service/commit/cc300e51d93aa683412db4a36c1db1440fdc0687))
+
 # [1.1.0](https://github.com/nktrapp/package-service/compare/v1.0.0...v1.1.0) (2026-06-07)
 
 
