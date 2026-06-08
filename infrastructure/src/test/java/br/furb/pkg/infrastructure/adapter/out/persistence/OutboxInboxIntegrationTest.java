@@ -90,6 +90,23 @@ class OutboxInboxIntegrationTest {
     }
 
     @Test
+    @DisplayName("schedules retries while attempts remain and marks the event FAILED once exhausted")
+    void outboxRetryExhaustion() {
+        PackageCreatedEvent event = sampleEvent();
+        outboxRepository.save(event);
+        String eventId = event.getEventId();
+        Instant nextAttempt = Instant.now().plusSeconds(30);
+
+        assertThat(outboxRepository.markForRetry(eventId, "boom", nextAttempt, 3).retryScheduled()).isTrue();
+        assertThat(outboxRepository.markForRetry(eventId, "boom", nextAttempt, 3).retryScheduled()).isTrue();
+        OutboxRepositoryPort.RetryOutcome exhausted = outboxRepository.markForRetry(eventId, "boom", nextAttempt, 3);
+
+        assertThat(exhausted.retryScheduled()).isFalse();
+        assertThat(exhausted.retryCount()).isEqualTo(3);
+        assertThat(outboxRepository.countFailed()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("inbox saveIfAbsent is idempotent on the unique eventId")
     void inboxIdempotency() {
         assertThat(inboxRepository.saveIfAbsent("evt-1", "package.created")).isTrue();
