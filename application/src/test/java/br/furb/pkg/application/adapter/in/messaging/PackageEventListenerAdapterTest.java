@@ -2,17 +2,25 @@ package br.furb.pkg.application.adapter.in.messaging;
 
 import br.furb.pkg.application.usecase.ProcessRouteCalculatedUseCase;
 import br.furb.pkg.application.usecase.ProcessRouteFailedUseCase;
+import br.furb.pkg.infrastructure.config.TraceContextSupport;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -25,9 +33,17 @@ class PackageEventListenerAdapterTest {
 
     @Mock
     ProcessRouteFailedUseCase processRouteFailedUseCase;
+    @Mock
+    TraceContextSupport traceContextSupport;
 
     private PackageEventListenerAdapter buildAdapter() {
-        return new PackageEventListenerAdapter(processRouteCalculatedUseCase, processRouteFailedUseCase, new ObjectMapper());
+        lenient().when(traceContextSupport.startConsumerSpan(eq("sqs.receive"), any())).thenReturn(noopSpan());
+        return new PackageEventListenerAdapter(
+                processRouteCalculatedUseCase,
+                processRouteFailedUseCase,
+                new ObjectMapper(),
+                traceContextSupport
+        );
     }
 
     @Test
@@ -40,7 +56,7 @@ class PackageEventListenerAdapterTest {
                             "hops":[{"name":"Hub A"},{"name":"Hub B"}]}}
                 """;
 
-        adapter.onMessage(message);
+        adapter.onMessage(toMessage(message));
 
         verify(processRouteCalculatedUseCase).execute("event-1", "pkg-1", List.of("Hub A", "Hub B"), 42.5, 6);
         verifyNoInteractions(processRouteFailedUseCase);
@@ -56,7 +72,7 @@ class PackageEventListenerAdapterTest {
                             "hops":[{"name":"Hub A"}]}}
                 """;
 
-        adapter.onMessage(message);
+        adapter.onMessage(toMessage(message));
 
         verify(processRouteCalculatedUseCase).execute("event-2", "pkg-1", List.of("Hub A"), 10.0, 2);
         verifyNoInteractions(processRouteFailedUseCase);
@@ -71,7 +87,7 @@ class PackageEventListenerAdapterTest {
                  "payload":{"packageId":"pkg-1","reason":"no reachable hub"}}
                 """;
 
-        adapter.onMessage(message);
+        adapter.onMessage(toMessage(message));
 
         verify(processRouteFailedUseCase).execute("event-3", "pkg-1", "no reachable hub");
         verifyNoInteractions(processRouteCalculatedUseCase);
@@ -85,7 +101,7 @@ class PackageEventListenerAdapterTest {
                 {"eventId":"event-4","eventType":"route.failed","payload":{"packageId":"pkg-1"}}
                 """;
 
-        adapter.onMessage(message);
+        adapter.onMessage(toMessage(message));
 
         verify(processRouteFailedUseCase).execute(eq("event-4"), eq("pkg-1"), eq(null));
         verifyNoInteractions(processRouteCalculatedUseCase);
@@ -99,7 +115,7 @@ class PackageEventListenerAdapterTest {
                 {"eventId":"event-5","eventType":"route.archived","payload":{"packageId":"pkg-1"}}
                 """;
 
-        adapter.onMessage(message);
+        adapter.onMessage(toMessage(message));
 
         verifyNoInteractions(processRouteCalculatedUseCase, processRouteFailedUseCase);
     }
@@ -112,10 +128,20 @@ class PackageEventListenerAdapterTest {
                 {"eventType":"route.calculated","payload":{"packageId":"pkg-1"}}
                 """;
 
-        assertThatThrownBy(() -> adapter.onMessage(message))
+        assertThatThrownBy(() -> adapter.onMessage(toMessage(message)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to process SQS message");
 
         verifyNoInteractions(processRouteCalculatedUseCase, processRouteFailedUseCase);
+    }
+
+    private Message<String> toMessage(String payload) {
+        return MessageBuilder.withPayload(payload)
+                .setHeader("Sqs_MA_traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+                .build();
+    }
+
+    private TraceContextSupport.ScopedSpan noopSpan() {
+        return new TraceContextSupport.ScopedSpan(mock(Span.class), mock(Tracer.SpanInScope.class));
     }
 }

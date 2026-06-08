@@ -17,6 +17,7 @@ dependencies {
 
     // Spring
     implementation libs.spring.boot.starter.data.mongodb
+    implementation libs.spring.boot.starter.opentelemetry
     implementation libs.spring.boot.starter.validation
 
     // AWS SQS
