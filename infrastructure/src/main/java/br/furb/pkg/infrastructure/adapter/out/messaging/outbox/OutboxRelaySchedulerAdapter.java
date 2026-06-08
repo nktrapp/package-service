@@ -20,6 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OutboxRelaySchedulerAdapter {
 
+    private static final int MAX_BACKOFF_SHIFT = 30;
+
     private final OutboxRepositoryPort outboxRepository;
     private final EventPublisherPort eventPublisherPort;
     private final ObjectMapper objectMapper;
@@ -35,6 +37,9 @@ public class OutboxRelaySchedulerAdapter {
 
     @Value("${app.outbox.relay.retry-delay-ms:5000}")
     private long retryDelayMs;
+
+    @Value("${app.outbox.relay.max-retry-delay-ms:60000}")
+    private long maxRetryDelayMs;
 
     @Value("${app.outbox.relay.processing-timeout-ms:60000}")
     private long processingTimeoutMs;
@@ -62,10 +67,11 @@ public class OutboxRelaySchedulerAdapter {
                 outboxRepository.markAsPublished(entry.eventId(), Instant.now());
                 log.debug("[outbox-relay] Event {} published successfully", entry.eventId());
             } catch (Exception e) {
+                long backoffMillis = computeBackoffMillis(entry.retryCount());
                 RetryOutcome retryOutcome = outboxRepository.markForRetry(
                         entry.eventId(),
                         e.getMessage(),
-                        Instant.now().plusMillis(retryDelayMs),
+                        Instant.now().plusMillis(backoffMillis),
                         maxAttempts
                 );
 
@@ -86,6 +92,14 @@ public class OutboxRelaySchedulerAdapter {
         if (deleted > 0) {
             log.info("[outbox-retention] Purged {} published events older than {}", deleted, threshold);
         }
+    }
+
+    private long computeBackoffMillis(int retryCount) {
+        if (retryCount > MAX_BACKOFF_SHIFT) {
+            return maxRetryDelayMs;
+        }
+        long delay = retryDelayMs * (1L << retryCount);
+        return Math.min(delay, maxRetryDelayMs);
     }
 
     private String buildEnvelope(OutboxEntry entry) {

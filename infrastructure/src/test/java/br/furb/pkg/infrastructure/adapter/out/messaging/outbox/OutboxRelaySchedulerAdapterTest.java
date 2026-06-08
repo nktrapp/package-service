@@ -16,8 +16,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
-import static java.util.Objects.nonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -54,7 +54,7 @@ class OutboxRelaySchedulerAdapterTest {
                     Instant.parse("2026-05-31T10:00:00Z"),
                     0
             );
-            when(outboxRepository.claimPending(eq(10), argThat(instant -> nonNull(instant)), argThat(instant -> nonNull(instant))))
+            when(outboxRepository.claimPending(eq(10), argThat(Objects::nonNull), argThat(Objects::nonNull)))
                     .thenReturn(List.of(entry));
 
             scheduler.relay();
@@ -83,9 +83,9 @@ class OutboxRelaySchedulerAdapterTest {
                     Instant.parse("2026-05-31T10:00:00Z"),
                     1
             );
-            when(outboxRepository.claimPending(eq(10), argThat(instant -> nonNull(instant)), argThat(instant -> nonNull(instant))))
+            when(outboxRepository.claimPending(eq(10), argThat(Objects::nonNull), argThat(Objects::nonNull)))
                     .thenReturn(List.of(entry));
-            when(outboxRepository.markForRetry(eq("event-1"), eq("boom"), argThat(instant -> nonNull(instant)), eq(5)))
+            when(outboxRepository.markForRetry(eq("event-1"), eq("boom"), argThat(Objects::nonNull), eq(5)))
                     .thenReturn(new RetryOutcome(true, 2));
             doThrow(new RuntimeException("boom"))
                     .when(eventPublisherPort)
@@ -93,8 +93,70 @@ class OutboxRelaySchedulerAdapterTest {
 
             scheduler.relay();
 
-            verify(outboxRepository).markForRetry(eq("event-1"), eq("boom"), argThat(instant -> nonNull(instant)), eq(5));
-            verify(outboxRepository, never()).markAsPublished(eq("event-1"), argThat(instant -> nonNull(instant)));
+            verify(outboxRepository).markForRetry(eq("event-1"), eq("boom"), argThat(Objects::nonNull), eq(5));
+            verify(outboxRepository, never()).markAsPublished(eq("event-1"), argThat(Objects::nonNull));
+        }
+
+        @Test
+        @DisplayName("Given a publishing failure, should grow the retry delay exponentially with the entry retry count")
+        void shouldUseExponentialBackoffForRetryDelay() {
+            OutboxRelaySchedulerAdapter scheduler = buildScheduler();
+            OutboxEntry entry = new OutboxEntry(
+                    "event-1",
+                    "package.created",
+                    "{\"packageId\":\"pkg-1\"}",
+                    "pkg-1",
+                    Instant.parse("2026-05-31T10:00:00Z"),
+                    3
+            );
+            when(outboxRepository.claimPending(eq(10), argThat(Objects::nonNull), argThat(Objects::nonNull)))
+                    .thenReturn(List.of(entry));
+            when(outboxRepository.markForRetry(eq("event-1"), eq("boom"), any(Instant.class), eq(5)))
+                    .thenReturn(new RetryOutcome(true, 4));
+            doThrow(new RuntimeException("boom"))
+                    .when(eventPublisherPort)
+                    .publish(eq("package-events-queue"), argThat(message -> message.contains("event-1")), eq("pkg-1"), eq("event-1"));
+
+            Instant before = Instant.now();
+            scheduler.relay();
+            Instant after = Instant.now();
+
+            ArgumentCaptor<Instant> nextAttemptCaptor = ArgumentCaptor.forClass(Instant.class);
+            verify(outboxRepository).markForRetry(eq("event-1"), eq("boom"), nextAttemptCaptor.capture(), eq(5));
+            // retryCount = 3 -> 5000ms * 2^3 = 40000ms
+            assertThat(nextAttemptCaptor.getValue())
+                    .isBetween(before.plusMillis(40000), after.plusMillis(40000));
+        }
+
+        @Test
+        @DisplayName("Given a high retry count, should cap the exponential backoff delay at max-retry-delay-ms")
+        void shouldCapExponentialBackoffDelay() {
+            OutboxRelaySchedulerAdapter scheduler = buildScheduler();
+            OutboxEntry entry = new OutboxEntry(
+                    "event-1",
+                    "package.created",
+                    "{\"packageId\":\"pkg-1\"}",
+                    "pkg-1",
+                    Instant.parse("2026-05-31T10:00:00Z"),
+                    10
+            );
+            when(outboxRepository.claimPending(eq(10), argThat(Objects::nonNull), argThat(Objects::nonNull)))
+                    .thenReturn(List.of(entry));
+            when(outboxRepository.markForRetry(eq("event-1"), eq("boom"), any(Instant.class), eq(5)))
+                    .thenReturn(new RetryOutcome(true, 11));
+            doThrow(new RuntimeException("boom"))
+                    .when(eventPublisherPort)
+                    .publish(eq("package-events-queue"), argThat(message -> message.contains("event-1")), eq("pkg-1"), eq("event-1"));
+
+            Instant before = Instant.now();
+            scheduler.relay();
+            Instant after = Instant.now();
+
+            ArgumentCaptor<Instant> nextAttemptCaptor = ArgumentCaptor.forClass(Instant.class);
+            verify(outboxRepository).markForRetry(eq("event-1"), eq("boom"), nextAttemptCaptor.capture(), eq(5));
+            // retryCount = 10 -> 5000ms * 2^10 = 5_120_000ms, capped to 60000ms
+            assertThat(nextAttemptCaptor.getValue())
+                    .isBetween(before.plusMillis(60000), after.plusMillis(60000));
         }
     }
 
@@ -104,6 +166,7 @@ class OutboxRelaySchedulerAdapterTest {
         ReflectionTestUtils.setField(scheduler, "batchSize", 10);
         ReflectionTestUtils.setField(scheduler, "maxAttempts", 5);
         ReflectionTestUtils.setField(scheduler, "retryDelayMs", 5000L);
+        ReflectionTestUtils.setField(scheduler, "maxRetryDelayMs", 60000L);
         ReflectionTestUtils.setField(scheduler, "processingTimeoutMs", 60000L);
         return scheduler;
     }
