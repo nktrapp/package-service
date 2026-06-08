@@ -4,6 +4,9 @@ import br.furb.pkg.domain.port.EventPublisherPort;
 import br.furb.pkg.domain.port.OutboxRepositoryPort;
 import br.furb.pkg.domain.port.OutboxRepositoryPort.OutboxEntry;
 import br.furb.pkg.domain.port.OutboxRepositoryPort.RetryOutcome;
+import br.furb.pkg.infrastructure.config.TraceContextSupport;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +41,8 @@ class OutboxRelaySchedulerAdapterTest {
 
     @Mock
     EventPublisherPort eventPublisherPort;
+    @Mock
+    TraceContextSupport traceContextSupport;
 
     @Nested
     @DisplayName("Relay")
@@ -51,6 +57,8 @@ class OutboxRelaySchedulerAdapterTest {
                     "package.created",
                     "{\"packageId\":\"pkg-1\"}",
                     "pkg-1",
+                    traceparent(),
+                    "rojo=00f067aa0ba902b7",
                     Instant.parse("2026-05-31T10:00:00Z"),
                     0
             );
@@ -64,6 +72,11 @@ class OutboxRelaySchedulerAdapterTest {
             verify(eventPublisherPort).publish(eq("package-events-queue"), envelopeCaptor.capture(), eq("pkg-1"), eq("event-1"));
             verify(outboxRepository).markAsPublished(eq("event-1"), publishedAtCaptor.capture());
             verify(outboxRepository, never()).markForRetry(any(), any(), any(Instant.class), anyInt());
+
+            ArgumentCaptor<TraceContextSupport.TraceCarrier> traceCaptor = ArgumentCaptor.forClass(TraceContextSupport.TraceCarrier.class);
+            verify(traceContextSupport).startSpan(eq("outbox.relay.publish"), traceCaptor.capture(), eq(Span.Kind.PRODUCER));
+            assertThat(traceCaptor.getValue().traceparent()).isEqualTo(traceparent());
+            assertThat(traceCaptor.getValue().tracestate()).isEqualTo("rojo=00f067aa0ba902b7");
 
             assertThat(envelopeCaptor.getValue())
                     .contains("\"eventId\":\"event-1\"")
@@ -80,6 +93,8 @@ class OutboxRelaySchedulerAdapterTest {
                     "package.created",
                     "{\"packageId\":\"pkg-1\"}",
                     "pkg-1",
+                    traceparent(),
+                    null,
                     Instant.parse("2026-05-31T10:00:00Z"),
                     1
             );
@@ -106,6 +121,8 @@ class OutboxRelaySchedulerAdapterTest {
                     "package.created",
                     "{\"packageId\":\"pkg-1\"}",
                     "pkg-1",
+                    traceparent(),
+                    null,
                     Instant.parse("2026-05-31T10:00:00Z"),
                     3
             );
@@ -137,6 +154,8 @@ class OutboxRelaySchedulerAdapterTest {
                     "package.created",
                     "{\"packageId\":\"pkg-1\"}",
                     "pkg-1",
+                    traceparent(),
+                    null,
                     Instant.parse("2026-05-31T10:00:00Z"),
                     10
             );
@@ -161,7 +180,16 @@ class OutboxRelaySchedulerAdapterTest {
     }
 
     private OutboxRelaySchedulerAdapter buildScheduler() {
-        OutboxRelaySchedulerAdapter scheduler = new OutboxRelaySchedulerAdapter(outboxRepository, eventPublisherPort, new ObjectMapper());
+        when(traceContextSupport.startSpan("outbox.relay.tick")).thenReturn(noopSpan());
+        when(traceContextSupport.startSpan(eq("outbox.relay.publish"), any(TraceContextSupport.TraceCarrier.class), eq(Span.Kind.PRODUCER)))
+                .thenReturn(noopSpan());
+
+        OutboxRelaySchedulerAdapter scheduler = new OutboxRelaySchedulerAdapter(
+                outboxRepository,
+                eventPublisherPort,
+                new ObjectMapper(),
+                traceContextSupport
+        );
         ReflectionTestUtils.setField(scheduler, "outboundQueue", "package-events-queue");
         ReflectionTestUtils.setField(scheduler, "batchSize", 10);
         ReflectionTestUtils.setField(scheduler, "maxAttempts", 5);
@@ -169,5 +197,13 @@ class OutboxRelaySchedulerAdapterTest {
         ReflectionTestUtils.setField(scheduler, "maxRetryDelayMs", 60000L);
         ReflectionTestUtils.setField(scheduler, "processingTimeoutMs", 60000L);
         return scheduler;
+    }
+
+    private TraceContextSupport.ScopedSpan noopSpan() {
+        return new TraceContextSupport.ScopedSpan(mock(Span.class), mock(Tracer.SpanInScope.class));
+    }
+
+    private String traceparent() {
+        return "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
     }
 }
