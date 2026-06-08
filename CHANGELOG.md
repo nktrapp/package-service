@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/nktrapp/package-service/compare/v1.5.0...v1.5.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* removido profile local do spring. ([e24cfc0](https://github.com/nktrapp/package-service/commit/e24cfc0bb0c35c42f1ede1862437cd4da1b45d3e))
+
 # [1.5.0](https://github.com/nktrapp/package-service/compare/v1.4.0...v1.5.0) (2026-06-08)
 
 
