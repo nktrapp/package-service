@@ -46,7 +46,11 @@ graalvmNative {
         named("main") {
             imageName = "package-service"
             mainClass = "br.furb.pkg.application.PackageServiceApplication"
-            buildArgs.add("--gc=G1")
+            //buildArgs.add("--gc=G1")
         }
     }
+}
+
+springBoot {
+    buildInfo()
 }
