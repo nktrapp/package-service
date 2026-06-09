@@ -1,3 +1,11 @@
+## [1.5.3](https://github.com/nktrapp/package-service/compare/v1.5.2...v1.5.3) (2026-06-09)
+
+
+### Bug Fixes
+
+* compatibiliza a imagem nativa GraalVM com o ambiente local ([3068910](https://github.com/nktrapp/package-service/commit/30689106668a2de80635d2181c90386470ecbe28))
+* exporta traces OTLP para o ADOT/X-Ray ([0379798](https://github.com/nktrapp/package-service/commit/03797986d3c8baed3623268a929b1e05d8b43255))
+
 ## [1.5.2](https://github.com/nktrapp/package-service/compare/v1.5.1...v1.5.2) (2026-06-09)
 
 
