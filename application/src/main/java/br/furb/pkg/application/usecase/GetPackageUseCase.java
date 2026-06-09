@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GetPackageUseCase {
 
     private final PackageRepositoryPort packageRepository;
+    private final PackageMapper packageMapper;
 
     public PackageResponse execute(String packageId) {
         log.info("[get-package] Fetching package {}", packageId);
@@ -20,6 +21,6 @@ public class GetPackageUseCase {
         Package pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new PackageNotFoundException(packageId));
 
-        return PackageMapper.INSTANCE.toResponse(pkg);
+        return packageMapper.toResponse(pkg);
     }
 }

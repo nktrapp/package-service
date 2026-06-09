@@ -1,6 +1,7 @@
 package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.application.dto.PackageResponse;
+import br.furb.pkg.application.mapper.PackageMapper;
 import br.furb.pkg.domain.model.Package;
 import br.furb.pkg.domain.model.PackageStatus;
 import br.furb.pkg.domain.port.PackageRepositoryPort;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -27,10 +29,12 @@ class ListPackagesUseCaseTest {
     @Mock
     PackageRepositoryPort packageRepository;
 
+    private final PackageMapper packageMapper = Mappers.getMapper(PackageMapper.class);
+
     @Test
     @DisplayName("Given no status filter, should list all packages")
     void shouldListAllWhenNoFilter() {
-        ListPackagesUseCase useCase = new ListPackagesUseCase(packageRepository);
+        ListPackagesUseCase useCase = new ListPackagesUseCase(packageRepository, packageMapper);
         when(packageRepository.findAll()).thenReturn(List.of(buildPackage(PackageStatus.CREATED)));
 
         List<PackageResponse> responses = useCase.execute(null);
@@ -42,7 +46,7 @@ class ListPackagesUseCaseTest {
     @Test
     @DisplayName("Given a status filter, should query packages by that status")
     void shouldListByStatusWhenFilterProvided() {
-        ListPackagesUseCase useCase = new ListPackagesUseCase(packageRepository);
+        ListPackagesUseCase useCase = new ListPackagesUseCase(packageRepository, packageMapper);
         when(packageRepository.findByStatus(PackageStatus.IN_TRANSIT))
                 .thenReturn(List.of(buildPackage(PackageStatus.IN_TRANSIT), buildPackage(PackageStatus.IN_TRANSIT)));
 

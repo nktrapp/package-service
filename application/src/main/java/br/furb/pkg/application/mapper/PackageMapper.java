@@ -5,12 +5,9 @@ import br.furb.pkg.application.dto.PackageResponse;
 import br.furb.pkg.domain.model.Package;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface PackageMapper {
-
-    PackageMapper INSTANCE = Mappers.getMapper(PackageMapper.class);
 
     PackageResponse toResponse(Package pkg);
 
