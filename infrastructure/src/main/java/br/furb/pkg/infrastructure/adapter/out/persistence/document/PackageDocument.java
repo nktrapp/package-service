@@ -3,7 +3,6 @@ package br.furb.pkg.infrastructure.adapter.out.persistence.document;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -15,7 +14,6 @@ import java.util.List;
 @Getter
 @Setter
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
 @Document("packages")
 public class PackageDocument {
@@ -34,7 +32,6 @@ public class PackageDocument {
     @Getter
     @Setter
     @Builder
-    @NoArgsConstructor
     @AllArgsConstructor
     public static class RouteInfoEmbedded {
         private List<String> hubs;
