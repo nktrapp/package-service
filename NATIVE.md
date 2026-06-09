@@ -52,6 +52,14 @@ the SQS listener, use-case wiring, `OtlpHttpSpanExporter`). This is the per-PR s
 it runs inside the existing `ci.yml` `build`. When you add a
 `@Bean`/`@Profile`/`@ConditionalOnProperty`, run this test.
 
+## Manual native hints (and why they stay)
+GraalVM only includes what is statically reachable. `NativeHintsConfig` registers Jackson
+binding reflection for the SQS event payloads — these types are reached only through runtime
+`ObjectMapper` calls in adapter code (no static reachability), so without the hint native
+(de)serialization fails at runtime (not at build). It is **necessary, not a workaround** — do
+not remove it. To re-verify: remove it on a branch, run the **Native Check** workflow, then
+exercise the messaging path on the native binary.
+
 ## Validation matrix
 1. **JVM build + AOT guard:** `./gradlew build` — runs on every PR via `ci.yml`.
 2. **Native compile:** `./gradlew :application:nativeCompile` (slow) — also the manual
