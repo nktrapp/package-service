@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/nktrapp/package-service/compare/v1.5.1...v1.5.2) (2026-06-09)
+
+
+### Bug Fixes
+
+* usa componentModel spring no MapStruct para compatibilidade com GraalVM native ([6672055](https://github.com/nktrapp/package-service/commit/6672055c255c68e4dd63610125756453b998bcfa))
+
 ## [1.5.1](https://github.com/nktrapp/package-service/compare/v1.5.0...v1.5.1) (2026-06-08)
 
 
