@@ -1,3 +1,10 @@
+## [1.5.4](https://github.com/nktrapp/package-service/compare/v1.5.3...v1.5.4) (2026-06-09)
+
+
+### Bug Fixes
+
+* habilita OTLP tracing export por default para incluir o exporter na imagem nativa ([020bf3a](https://github.com/nktrapp/package-service/commit/020bf3a83d9f1c230c21e69487c2af8983c6a502))
+
 ## [1.5.3](https://github.com/nktrapp/package-service/compare/v1.5.2...v1.5.3) (2026-06-09)
 
 
