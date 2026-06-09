@@ -2,6 +2,7 @@ package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.application.dto.CreatePackageCommand;
 import br.furb.pkg.application.dto.PackageResponse;
+import br.furb.pkg.application.mapper.PackageMapper;
 import br.furb.pkg.domain.event.DomainEvent;
 import br.furb.pkg.domain.event.PackageCreatedEvent;
 import br.furb.pkg.domain.model.Package;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -33,10 +35,12 @@ class CreatePackageUseCaseTest {
     @Mock
     OutboxRepositoryPort outboxRepository;
 
+    private final PackageMapper packageMapper = Mappers.getMapper(PackageMapper.class);
+
     @Test
     @DisplayName("Given a valid command, should persist the package as CREATED and emit package.created to the outbox")
     void shouldPersistPackageAndEmitEvent() {
-        CreatePackageUseCase useCase = new CreatePackageUseCase(packageRepository, outboxRepository);
+        CreatePackageUseCase useCase = new CreatePackageUseCase(packageRepository, outboxRepository, packageMapper);
         CreatePackageCommand command = new CreatePackageCommand("89010000", "89200000", new BigDecimal("2.5"), "Box");
 
         Package saved = Package.builder()

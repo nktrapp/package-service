@@ -20,6 +20,7 @@ public class CreatePackageUseCase {
 
     private final PackageRepositoryPort packageRepository;
     private final OutboxRepositoryPort outboxRepository;
+    private final PackageMapper packageMapper;
 
     @Transactional
     public PackageResponse execute(CreatePackageCommand command) {
@@ -50,6 +51,6 @@ public class CreatePackageUseCase {
 
         log.info("[create-package] Package created with id {}", saved.getId());
 
-        return PackageMapper.INSTANCE.toResponse(saved);
+        return packageMapper.toResponse(saved);
     }
 }

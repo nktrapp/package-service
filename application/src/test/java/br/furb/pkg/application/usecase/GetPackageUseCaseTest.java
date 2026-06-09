@@ -1,6 +1,7 @@
 package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.application.dto.PackageResponse;
+import br.furb.pkg.application.mapper.PackageMapper;
 import br.furb.pkg.domain.exception.PackageNotFoundException;
 import br.furb.pkg.domain.model.Package;
 import br.furb.pkg.domain.model.PackageStatus;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,10 +28,12 @@ class GetPackageUseCaseTest {
     @Mock
     PackageRepositoryPort packageRepository;
 
+    private final PackageMapper packageMapper = Mappers.getMapper(PackageMapper.class);
+
     @Test
     @DisplayName("Given an existing package, should return its response")
     void shouldReturnPackage() {
-        GetPackageUseCase useCase = new GetPackageUseCase(packageRepository);
+        GetPackageUseCase useCase = new GetPackageUseCase(packageRepository, packageMapper);
         when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage()));
 
         PackageResponse response = useCase.execute("pkg-1");
@@ -40,7 +44,7 @@ class GetPackageUseCaseTest {
     @Test
     @DisplayName("Given an unknown package, should throw PackageNotFoundException")
     void shouldThrowWhenPackageNotFound() {
-        GetPackageUseCase useCase = new GetPackageUseCase(packageRepository);
+        GetPackageUseCase useCase = new GetPackageUseCase(packageRepository, packageMapper);
         when(packageRepository.findById("missing")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> useCase.execute("missing"))

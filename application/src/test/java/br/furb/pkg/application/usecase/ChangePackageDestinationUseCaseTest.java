@@ -2,6 +2,7 @@ package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.application.dto.ChangeDestinationCommand;
 import br.furb.pkg.application.dto.PackageResponse;
+import br.furb.pkg.application.mapper.PackageMapper;
 import br.furb.pkg.domain.event.DomainEvent;
 import br.furb.pkg.domain.event.PackageDestinationChangedEvent;
 import br.furb.pkg.domain.exception.PackageNotFoundException;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -37,10 +39,12 @@ class ChangePackageDestinationUseCaseTest {
     @Mock
     OutboxRepositoryPort outboxRepository;
 
+    private final PackageMapper packageMapper = Mappers.getMapper(PackageMapper.class);
+
     @Test
     @DisplayName("Given an existing package, should change the recipient CEP, reopen routing and emit package.destination.changed")
     void shouldChangeDestinationAndEmitEvent() {
-        ChangePackageDestinationUseCase useCase = new ChangePackageDestinationUseCase(packageRepository, outboxRepository);
+        ChangePackageDestinationUseCase useCase = new ChangePackageDestinationUseCase(packageRepository, outboxRepository, packageMapper);
         Package existing = buildPackage("pkg-1", "89010000", PackageStatus.ROUTE_CALCULATED);
         when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(existing));
         when(packageRepository.save(any(Package.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -68,7 +72,7 @@ class ChangePackageDestinationUseCaseTest {
     @Test
     @DisplayName("Given an unknown package, should throw PackageNotFoundException and not emit any event")
     void shouldThrowWhenPackageNotFound() {
-        ChangePackageDestinationUseCase useCase = new ChangePackageDestinationUseCase(packageRepository, outboxRepository);
+        ChangePackageDestinationUseCase useCase = new ChangePackageDestinationUseCase(packageRepository, outboxRepository, packageMapper);
         when(packageRepository.findById("missing")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> useCase.execute("missing", new ChangeDestinationCommand("89200000")))

@@ -2,6 +2,7 @@ package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.application.dto.PackageResponse;
 import br.furb.pkg.application.dto.UpdateStatusCommand;
+import br.furb.pkg.application.mapper.PackageMapper;
 import br.furb.pkg.domain.event.DomainEvent;
 import br.furb.pkg.domain.event.PackageStatusUpdatedEvent;
 import br.furb.pkg.domain.exception.InvalidPackageStateException;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -38,10 +40,12 @@ class UpdatePackageStatusUseCaseTest {
     @Mock
     OutboxRepositoryPort outboxRepository;
 
+    private final PackageMapper packageMapper = Mappers.getMapper(PackageMapper.class);
+
     @Test
     @DisplayName("Given a valid transition, should persist the new status and emit package.status.updated")
     void shouldUpdateStatusAndEmitEvent() {
-        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository);
+        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository, packageMapper);
         Package existing = buildPackage(PackageStatus.ROUTE_CALCULATED);
         when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(existing));
         when(packageRepository.save(any(Package.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -65,7 +69,7 @@ class UpdatePackageStatusUseCaseTest {
     @Test
     @DisplayName("Given an unknown package, should throw PackageNotFoundException and not emit any event")
     void shouldThrowWhenPackageNotFound() {
-        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository);
+        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository, packageMapper);
         when(packageRepository.findById("missing")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> useCase.execute(new UpdateStatusCommand("missing", PackageStatus.IN_TRANSIT)))
@@ -78,7 +82,7 @@ class UpdatePackageStatusUseCaseTest {
     @Test
     @DisplayName("Given an invalid transition, should throw InvalidPackageStateException and not persist or emit")
     void shouldThrowWhenTransitionInvalid() {
-        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository);
+        UpdatePackageStatusUseCase useCase = new UpdatePackageStatusUseCase(packageRepository, outboxRepository, packageMapper);
         Package existing = buildPackage(PackageStatus.CREATED);
         when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(existing));
 

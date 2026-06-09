@@ -17,6 +17,7 @@ import static java.util.Objects.isNull;
 public class ListPackagesUseCase {
 
     private final PackageRepositoryPort packageRepository;
+    private final PackageMapper packageMapper;
 
     public List<PackageResponse> execute(PackageStatus statusFilter) {
         log.info("[list-packages] Listing packages with filter: {}", statusFilter);
@@ -26,7 +27,7 @@ public class ListPackagesUseCase {
                 : packageRepository.findByStatus(statusFilter);
 
         return packages.stream()
-                .map(PackageMapper.INSTANCE::toResponse)
+                .map(packageMapper::toResponse)
                 .toList();
     }
 }

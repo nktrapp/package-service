@@ -18,6 +18,7 @@ public class ChangePackageDestinationUseCase {
 
     private final PackageRepositoryPort packageRepository;
     private final OutboxRepositoryPort outboxRepository;
+    private final PackageMapper packageMapper;
 
     @Transactional
     public PackageResponse execute(String packageId, ChangeDestinationCommand command) {
@@ -43,6 +44,6 @@ public class ChangePackageDestinationUseCase {
 
         log.info("[change-destination] Package {} destination changed, awaiting recalculation", saved.getId());
 
-        return PackageMapper.INSTANCE.toResponse(saved);
+        return packageMapper.toResponse(saved);
     }
 }

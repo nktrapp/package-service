@@ -18,6 +18,7 @@ public class UpdatePackageStatusUseCase {
 
     private final PackageRepositoryPort packageRepository;
     private final OutboxRepositoryPort outboxRepository;
+    private final PackageMapper packageMapper;
 
     @Transactional
     public PackageResponse execute(UpdateStatusCommand command) {
@@ -41,6 +42,6 @@ public class UpdatePackageStatusUseCase {
 
         log.info("[update-status] Package {} status updated to {}", saved.getId(), saved.getStatus());
 
-        return PackageMapper.INSTANCE.toResponse(saved);
+        return packageMapper.toResponse(saved);
     }
 }
