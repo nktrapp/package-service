@@ -2,6 +2,7 @@ package br.furb.pkg.application.usecase;
 
 import br.furb.pkg.domain.exception.PackageNotFoundException;
 import br.furb.pkg.domain.model.Package;
+import br.furb.pkg.domain.model.PackageStatus;
 import br.furb.pkg.domain.model.RouteInfo;
 import br.furb.pkg.domain.port.InboxRepositoryPort;
 import br.furb.pkg.domain.port.PackageRepositoryPort;
@@ -20,7 +21,7 @@ public class ProcessRouteCalculatedUseCase {
     private final InboxRepositoryPort inboxRepository;
 
     @Transactional
-    public void execute(String eventId, String packageId, List<String> hubs, double distanceKm, int transitHours) {
+    public void execute(String eventId, String packageId, String destinationCep, List<String> hubs, double distanceKm, int transitHours) {
         if (!inboxRepository.saveIfAbsent(eventId, "route.calculated")) {
             log.info("[process-route] Event {} already processed, skipping", eventId);
             return;
@@ -30,6 +31,17 @@ public class ProcessRouteCalculatedUseCase {
 
         Package pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new PackageNotFoundException(packageId));
+
+        if (destinationCep != null && !destinationCep.equals(pkg.getRecipientCep())) {
+            log.warn("[process-route] Stale route for package {}: route destination {} != current recipient {}, skipping",
+                    packageId, destinationCep, pkg.getRecipientCep());
+            return;
+        }
+
+        if (!pkg.getStatus().isValidTransition(PackageStatus.ROUTE_CALCULATED)) {
+            log.warn("[process-route] Package {} in status {} cannot accept route, skipping", packageId, pkg.getStatus());
+            return;
+        }
 
         RouteInfo routeInfo = RouteInfo.builder()
                 .hubs(hubs)

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -74,6 +75,20 @@ class PackageRestAdapterTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newCep\":\"abc\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /{id}/destination returns 409 when a concurrent write conflict occurs")
+    void shouldReturnConflictOnConcurrentWriteConflict() throws Exception {
+        when(changePackageDestinationUseCase.execute(eq("pkg-1"), any()))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Command execution failed on MongoDB server with error 112 (WriteConflict)"));
+
+        mockMvc.perform(patch("/api/v1/packages/{id}/destination", "pkg-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newCep\":\"89030000\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Concurrent Modification Conflict"));
     }
 
     @Test

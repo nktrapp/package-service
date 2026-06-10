@@ -60,18 +60,21 @@ public class PackageEventListenerAdapter {
 
                 log.info("[sqs-listener] Received {} from {}", eventType, inboundQueue);
 
-                double totalDistanceKm = payload.get("totalDistanceKm").asDouble();
-                int estimatedTransitHours = payload.get("estimatedTransitHours").asInt();
+                JsonNode destinationCepNode = payload.get("destinationCep");
+                String destinationCep = destinationCepNode == null || destinationCepNode.isNull() ? null : destinationCepNode.asText();
+
+                double totalDistanceKm = requireDouble(payload, "totalDistanceKm");
+                int estimatedTransitHours = requireInt(payload, "estimatedTransitHours");
 
                 JsonNode hopsNode = payload.get("hops");
                 List<String> hubs = new ArrayList<>();
                 if (hopsNode != null) {
                     for (JsonNode hop : hopsNode) {
-                        hubs.add(hop.get("name").asText());
+                        hubs.add(requireText(hop, "name"));
                     }
                 }
 
-                processRouteCalculatedUseCase.execute(eventId, packageId, hubs, totalDistanceKm, estimatedTransitHours);
+                processRouteCalculatedUseCase.execute(eventId, packageId, destinationCep, hubs, totalDistanceKm, estimatedTransitHours);
             } else if ("route.failed".equals(eventType)) {
                 JsonNode payload = requireNode(root, "payload");
                 packageId = requireText(payload, "packageId");
@@ -102,6 +105,22 @@ public class PackageEventListenerAdapter {
             throw new IllegalArgumentException("Missing required event field: " + field);
         }
         return node.asText();
+    }
+
+    private static double requireDouble(JsonNode parent, String field) {
+        JsonNode node = parent.get(field);
+        if (node == null || node.isNull()) {
+            throw new IllegalArgumentException("Missing required event field: " + field);
+        }
+        return node.asDouble();
+    }
+
+    private static int requireInt(JsonNode parent, String field) {
+        JsonNode node = parent.get(field);
+        if (node == null || node.isNull()) {
+            throw new IllegalArgumentException("Missing required event field: " + field);
+        }
+        return node.asInt();
     }
 
     private static JsonNode requireNode(JsonNode parent, String field) {

@@ -58,7 +58,7 @@ class PackageEventListenerAdapterTest {
 
         adapter.onMessage(toMessage(message));
 
-        verify(processRouteCalculatedUseCase).execute("event-1", "pkg-1", List.of("Hub A", "Hub B"), 42.5, 6);
+        verify(processRouteCalculatedUseCase).execute("event-1", "pkg-1", null, List.of("Hub A", "Hub B"), 42.5, 6);
         verifyNoInteractions(processRouteFailedUseCase);
     }
 
@@ -74,7 +74,7 @@ class PackageEventListenerAdapterTest {
 
         adapter.onMessage(toMessage(message));
 
-        verify(processRouteCalculatedUseCase).execute("event-2", "pkg-1", List.of("Hub A"), 10.0, 2);
+        verify(processRouteCalculatedUseCase).execute("event-2", "pkg-1", null, List.of("Hub A"), 10.0, 2);
         verifyNoInteractions(processRouteFailedUseCase);
     }
 
@@ -131,6 +131,61 @@ class PackageEventListenerAdapterTest {
         assertThatThrownBy(() -> adapter.onMessage(toMessage(message)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to process SQS message");
+
+        verifyNoInteractions(processRouteCalculatedUseCase, processRouteFailedUseCase);
+    }
+
+    @Test
+    @DisplayName("Given a route.calculated message carrying destinationCep, should pass it to the use case")
+    void shouldExtractDestinationCep() {
+        PackageEventListenerAdapter adapter = buildAdapter();
+        String message = """
+                {"eventId":"event-6","eventType":"route.calculated",
+                 "payload":{"packageId":"pkg-1","destinationCep":"01310100","totalDistanceKm":42.5,"estimatedTransitHours":6,
+                            "hops":[{"name":"Hub A"}]}}
+                """;
+
+        adapter.onMessage(toMessage(message));
+
+        verify(processRouteCalculatedUseCase).execute("event-6", "pkg-1", "01310100", List.of("Hub A"), 42.5, 6);
+        verifyNoInteractions(processRouteFailedUseCase);
+    }
+
+    @Test
+    @DisplayName("Given a hop without a name, should fail with a missing-field error instead of an NPE")
+    void shouldThrowWhenHopNameMissing() {
+        PackageEventListenerAdapter adapter = buildAdapter();
+        String message = """
+                {"eventId":"event-7","eventType":"route.calculated",
+                 "payload":{"packageId":"pkg-1","totalDistanceKm":42.5,"estimatedTransitHours":6,
+                            "hops":[{"city":"Blumenau"}]}}
+                """;
+
+        assertThatThrownBy(() -> adapter.onMessage(toMessage(message)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to process SQS message")
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name");
+
+        verifyNoInteractions(processRouteCalculatedUseCase, processRouteFailedUseCase);
+    }
+
+    @Test
+    @DisplayName("Given a payload without totalDistanceKm, should fail with a missing-field error instead of an NPE")
+    void shouldThrowWhenTotalDistanceKmMissing() {
+        PackageEventListenerAdapter adapter = buildAdapter();
+        String message = """
+                {"eventId":"event-8","eventType":"route.calculated",
+                 "payload":{"packageId":"pkg-1","estimatedTransitHours":6,"hops":[{"name":"Hub A"}]}}
+                """;
+
+        assertThatThrownBy(() -> adapter.onMessage(toMessage(message)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to process SQS message")
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("totalDistanceKm");
 
         verifyNoInteractions(processRouteCalculatedUseCase, processRouteFailedUseCase);
     }

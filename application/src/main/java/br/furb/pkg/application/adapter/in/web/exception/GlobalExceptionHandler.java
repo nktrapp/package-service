@@ -3,6 +3,7 @@ package br.furb.pkg.application.adapter.in.web.exception;
 import br.furb.pkg.domain.exception.InvalidPackageStateException;
 import br.furb.pkg.domain.exception.PackageNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,6 +36,18 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
         problem.setTitle("Invalid Package State");
         problem.setType(URI.create("https://api.furb.br/errors/invalid-state"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleConcurrentModification(DataIntegrityViolationException ex) {
+        log.warn("[exception-handler] Concurrent write conflict: {}", ex.getMessage());
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "The package was modified by a concurrent request, please retry");
+        problem.setTitle("Concurrent Modification Conflict");
+        problem.setType(URI.create("https://api.furb.br/errors/conflict"));
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
