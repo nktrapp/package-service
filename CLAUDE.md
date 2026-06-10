@@ -26,6 +26,8 @@ Spring Boot microservice for package management. Independent project (root dir e
 - Package `status` is a strict state machine (`Package.withStatus`); a destination change goes `... → ROUTE_PENDING`.
 - JDK 25: builds pin the JUnit BOM + `net.bytebuddy.experimental=true` (in `build.gradle.kts`) — required, don't remove.
 - New code: prefer explicit types over `var`.
+- **Native image (GraalVM/AOT):** the build is profile-agnostic — Spring AOT freezes the bean graph under the *default* profile. **Never gate a needed bean on a runtime value** (`@Profile`/`@ConditionalOnProperty`/property default) or it is pruned silently from the image. Include the bean and no-op it (guard inside the bean, e.g. a `CommandLineRunner` checking `environment.matchesProfiles(...)`), or read a runtime value inside the bean. `AotBeanGraphContractTest` (`./gradlew test` → `processAot`) guards this per-PR. Full contract: `NATIVE.md`.
+- **Tracing on/off in native** = `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` (`0` disables), NOT `management.tracing.export.otlp.enabled` (AOT-frozen no-op); the OTLP exporter is always present in the image.
 
 ## Infra
 Per-service Terraform in `terraform/` (consumes shared `terraform/base/` via remote state). package-service uses NO Redis.

@@ -33,6 +33,7 @@ dependencies {
     // Testes
     testImplementation libs.spring.boot.starter.test
     testImplementation libs.spring.boot.starter.webmvc.test
+    testImplementation libs.spring.boot.starter.data.mongodb
     testImplementation libs.testcontainers.mongodb
     testImplementation libs.testcontainers.junit.jupiter
 }
@@ -61,4 +62,9 @@ graalvmNative {
 
 springBoot {
     buildInfo()
+}
+
+tasks.named('test') {
+    dependsOn 'processAot'
+    systemProperty 'aot.sources.dir', layout.buildDirectory.dir('generated/aotSources').get().asFile.absolutePath
 }

@@ -41,7 +41,7 @@ class ProcessRouteCalculatedUseCaseTest {
         when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
         when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage(PackageStatus.ROUTE_PENDING)));
 
-        useCase.execute("event-1", "pkg-1", List.of("Hub A", "Hub B"), 42.5, 6);
+        useCase.execute("event-1", "pkg-1", "89010000", List.of("Hub A", "Hub B"), 42.5, 6);
 
         ArgumentCaptor<Package> packageCaptor = ArgumentCaptor.forClass(Package.class);
         verify(packageRepository).save(packageCaptor.capture());
@@ -59,7 +59,7 @@ class ProcessRouteCalculatedUseCaseTest {
         ProcessRouteCalculatedUseCase useCase = new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
         when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(false);
 
-        useCase.execute("event-1", "pkg-1", List.of("Hub A"), 10.0, 1);
+        useCase.execute("event-1", "pkg-1", "89010000", List.of("Hub A"), 10.0, 1);
 
         verify(packageRepository, never()).findById(any());
         verify(packageRepository, never()).save(any());
@@ -72,10 +72,64 @@ class ProcessRouteCalculatedUseCaseTest {
         when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
         when(packageRepository.findById("missing")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute("event-1", "missing", List.of("Hub A"), 10.0, 1))
+        assertThatThrownBy(() -> useCase.execute("event-1", "missing", "89010000", List.of("Hub A"), 10.0, 1))
                 .isInstanceOf(PackageNotFoundException.class);
 
         verify(packageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Given a route whose destination differs from the current recipient, should skip without saving")
+    void shouldSkipStaleRouteWhenDestinationDiffers() {
+        ProcessRouteCalculatedUseCase useCase = new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
+        when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
+        when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage(PackageStatus.ROUTE_PENDING)));
+
+        useCase.execute("event-1", "pkg-1", "01310100", List.of("Hub A"), 10.0, 1);
+
+        verify(packageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Given a package that cannot transition to ROUTE_CALCULATED, should skip without saving or throwing")
+    void shouldSkipWhenTransitionIsInvalid() {
+        ProcessRouteCalculatedUseCase useCase = new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
+        when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
+        when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage(PackageStatus.IN_TRANSIT)));
+
+        useCase.execute("event-1", "pkg-1", "89010000", List.of("Hub A"), 10.0, 1);
+
+        verify(packageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Given a legacy event without destinationCep, should attach the route as before")
+    void shouldAttachRouteWhenDestinationCepIsNull() {
+        ProcessRouteCalculatedUseCase useCase = new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
+        when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
+        when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage(PackageStatus.ROUTE_PENDING)));
+
+        useCase.execute("event-1", "pkg-1", null, List.of("Hub A"), 10.0, 1);
+
+        ArgumentCaptor<Package> packageCaptor = ArgumentCaptor.forClass(Package.class);
+        verify(packageRepository).save(packageCaptor.capture());
+        assertThat(packageCaptor.getValue().getStatus()).isEqualTo(PackageStatus.ROUTE_CALCULATED);
+        assertThat(packageCaptor.getValue().getRouteInfo()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Given a route whose destination matches the current recipient, should attach the route")
+    void shouldAttachRouteWhenDestinationCepMatches() {
+        ProcessRouteCalculatedUseCase useCase = new ProcessRouteCalculatedUseCase(packageRepository, inboxRepository);
+        when(inboxRepository.saveIfAbsent("event-1", "route.calculated")).thenReturn(true);
+        when(packageRepository.findById("pkg-1")).thenReturn(Optional.of(buildPackage(PackageStatus.ROUTE_PENDING)));
+
+        useCase.execute("event-1", "pkg-1", "89010000", List.of("Hub A"), 10.0, 1);
+
+        ArgumentCaptor<Package> packageCaptor = ArgumentCaptor.forClass(Package.class);
+        verify(packageRepository).save(packageCaptor.capture());
+        assertThat(packageCaptor.getValue().getStatus()).isEqualTo(PackageStatus.ROUTE_CALCULATED);
+        assertThat(packageCaptor.getValue().getRouteInfo()).isNotNull();
     }
 
     private Package buildPackage(PackageStatus status) {
