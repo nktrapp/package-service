@@ -1,3 +1,10 @@
+## [1.5.5](https://github.com/nktrapp/package-service/compare/v1.5.4...v1.5.5) (2026-06-10)
+
+
+### Bug Fixes
+
+* descarta eventos de rota stale e blinda consumo contra duplicatas e desordem ([f20271d](https://github.com/nktrapp/package-service/commit/f20271daba46a5a422fa544b3f4b580a4519abc8))
+
 ## [1.5.4](https://github.com/nktrapp/package-service/compare/v1.5.3...v1.5.4) (2026-06-09)
 
 
