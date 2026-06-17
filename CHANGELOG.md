@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/nktrapp/package-service/compare/v1.6.0...v1.7.0) (2026-06-17)
+
+
+### Features
+
+* adiciona documentação de API com OpenAPI 3.1 (springdoc) ([15324a2](https://github.com/nktrapp/package-service/commit/15324a28bf40cca12ae8bacb86976bba4b6246e2))
+
 # [1.6.0](https://github.com/nktrapp/package-service/compare/v1.5.5...v1.6.0) (2026-06-10)
 
 
