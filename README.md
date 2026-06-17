@@ -7,9 +7,9 @@ controla o **ciclo de vida** (máquina de estados) e dispara a roteirização pe
 Comunica-se com o `logistics-service` exclusivamente por mensagens SQS FIFO (nunca por
 HTTP direto).
 
-- Porta local: **http://localhost:8081** (via `docker compose`, container expõe 8080)
+- Porta HTTP: definida por `SERVER_PORT` (a app expõe 8080 no container)
 - Banco: MongoDB (`package_db`) — precisa ser **replica set** (transações do outbox/inbox)
-- Mensageria: SQS FIFO (MiniStack no ambiente local)
+- Mensageria: SQS FIFO
 - Não usa Redis.
 
 ---
@@ -187,12 +187,15 @@ Actuator em `/management` (`health`, `info`, `metrics`, `loggers`).
 ## Como executar e testar
 
 ```bash
-# stack completo (os dois serviços + Mongo + MiniStack), a partir da raiz do repositório:
-docker compose up -d --build
+# build + testes (inclui processAot e o guard test de AOT):
+./gradlew build
 ```
 
-Para que a roteirização funcione, o `logistics-service` precisa ter hubs/conexões — o
-**Data Seeder** dele popula um grafo padrão automaticamente no perfil `local`.
+O serviço roda apenas como **imagem nativa GraalVM** publicada (perfil `prod`), apontando para
+um MongoDB (replica set) e SQS acessíveis via env vars — não há mais stack local de
+`docker compose` nem perfil `local`.
 
-Testes HTTP prontos em [`http/packages.http`](http/packages.http). Guia de validação manual
-ponta a ponta em [`../VALIDATION.md`](../VALIDATION.md).
+Para que a roteirização funcione, o `logistics-service` precisa ter hubs/conexões — o
+**Data Seeder** dele popula um grafo padrão automaticamente no perfil `prod`.
+
+Testes HTTP prontos em [`http/packages.http`](http/packages.http).

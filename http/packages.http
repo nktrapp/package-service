@@ -1,7 +1,7 @@
 ###############################################################################
 # package-service — testes HTTP
 # Porta local: 8081. Execute de cima para baixo.
-# Pré-requisito: logistics-service no ar com o grafo padrão (HubDataSeeder, perfil local).
+# Pré-requisito: logistics-service no ar com o grafo padrão (HubDataSeeder, perfil prod).
 # A roteirização é ASSÍNCRONA: após criar/alterar um pacote, aguarde ~2–5s e reconsulte.
 ###############################################################################
 @host = http://localhost:8081
